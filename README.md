@@ -1,83 +1,137 @@
 
-# Latest Chain Node
+# Setting up a Blockchain Network
 
-This project aims to provide installation, running, and maintenance capabilities of **Latest chain validator node** for potential and existing Latest Chain backers. The consensus structure of this chain is delegated proof of stake "DPos" and is governed by the symbiosis of latest's implementation of go-ethereum and our system contracts [https://github.com/Latest-PoB/system-contracts]. This repository has multiple release candidates inline so we recommend checking for updates for better functions and stability.
-
-## System Requirements
-
-**Operating System:** Ubuntu >= 20.04 LTS
-
-**RAM:** 8GB minimum, 32GB recommended
-
-**Persistent Storage:** 25GB minimum, 100GB high-speed SSD recommended
-
-**Note regarding use of GPUs -** GPUs are primarily used in POW consensus chains. Being a DPos Latest chain has not only more TPS and fast block production but also doesn't need a GPU altogether for its purpose.
+This document aims to provide instructions for setting up a blockchain network from scratch. All the techniques and assets used are developed by Ether-Authority team. This document should be treated confidential by the reader as is the doc's nature.
 
 
 
-## How to become a validator
-To back the Latest blockchain you can become a validator. Full flow to become a validator, you must:
-* Install this package **([See Installation](#installation))**
-* Download your newly created validator wallet from your server and import it into your metamask or preferred wallet. Fund this account with the appropriate EGC needed to become a validator. Example command to download the wallet on your local PC. Only works for UNIX-based OSes or on any environment that can run the OpenSSH package:
+
+## Tools needed and Process
+
+Full process:
+
+- Create node package like this https://github.com/SecureChainAI/SCAI-Core
+- Install 1st RPC & 1st Miner
+
+
+## Creating node package
+To create node package we need geth source and system-contracts source. Please understand that there is no single geth source that can be used in creation of any blockchain. Which geth source we'll use is based on project requirements. You can use this repo to get a basic structure of node package https://github.com/hide001/Testlab
+
+### Creating genesis.json
+Now get the appropriate system-contracts. Modify it accordingly and deploy Validators.sol, Punish.sol & Proposal.sol on any testnet. After deployment, copy the deployed bytecode and:
+
+- open genesis.json file
+- remove the bytecode from "code" field and paste the copied, deployed bytecode
+example: 
+
+"000000000000000000000000000000000000F000": {
+      "balance":"0x0",
+      "code": "0x6080604052600436......"
+}
+
+
+- paste Validators.sol's bytecode in 000000000000000000000000000000000000F000
+
+- paste Punish.sol's bytecode in 000000000000000000000000000000000000F001
+
+- paste Proposal.sol's bytecode in 000000000000000000000000000000000000F002
+
+If epoch time and block period needs to be changed then also do it in the genesis.json
+
+
+### Updating abi.go
+
+- in the project directory, open file /node_src/consensus/congress/systemcontract/abi.go
+- modify the ABI value which you can get by compiling Validators.sol, Punish.sol and Proposal.sol in remix IDE.
+
+### Updating .env file
+- modify the CHAINID variable
+
+
+After all these modifications you can push the contents in the client's repo
+
+# Creating 1st RPC & 1st Miner
+- login to 1st miner server
 ```bash
-  scp -r root@<server_ip>:/root/core-blockchain/chaindata/node1/keystore
-  scp root@<server_ip>:/root/core-blockchain/chaindata/node1/pass.txt
+      git clone <url>
 ```
-* On your server, start the node that you just installed **([See Usage/Example](#usageexamples))**
-* Once the node is started and confirmation is seen on your terminal, open the interactive console by attaching tmux session **([See Usage/Example](#usageexamples))**
-* Once inside the interactive console, you'll see "IMPORTED TRANSACTION OBJECTS" and "age=<some period like 6d5hr or 5mon 3weeks>". You need to wait until the "unauthorized validator" warning starts to pop up on the console. 
-* Once "unauthorized validators" warning shows up, go to https://stake.latestcoin.io and click "Become a validator". Fill in all the details in the form, in the "Fee address" field enter the validator wallet address that you imported into your metamask. Proceed further
-* Once the last step is done, you'll see a "🔨 mined potential block" message on the interactive console. You'll also see your validator wallet as a validator on the staking page and on explorer. You should also detach from the console after the whole process is done **([See Usage/Example](#usageexamples))**
-## Installation
-
-**You must ensure that:** 
-* system requirements are met with careful supervision
-* the concerned server/local setup must be running 24/7 
-* there is sufficient power and cooling arrangement for your machine if running a local setup 
-If failed you may end up losing your stake in the blockchain and your staked coins, if any. You'll be jailed at once with no return point by the blockchain if found down/dead. You'll be responsible for chain data corruption on your node, frying up your motherboard, or damaging yourself and your surroundings.
-* PORT range: **32668 - 32700 both TCP & UDP** are opened for incoming traffic
-
-
-To install the Latest chain validator node in ubuntu linux
 ```bash
-  sudo -i
-  apt update && apt upgrade
-  apt install git tar curl wget
-  reboot
+      ./node-setup.sh --validator 1
 ```
-Skip the above commands if you have already updated the system and installed the necessary tools.
+- follow on-screen instructions until "All Task Passed" message is shown. DONT close the miner server window. DONT start the miner node
+- copy the public address of the wallet created
+- paste/replace this public address in the genesis.json on your local PC in extraData, alloc and coinbase fields
+- do git push from your local PC 
+- login to RPC server
+- input these commands and enter in the given order 
+```bash
+      git clone <client's repo's git link>
+```
+```bash
+      cd core-blockchain
+```
+```bash
+      ./node-setup.sh --rpc
+```
+- follow the instructions and wait until "All Task Passed" message is shown 
+```bash
+      ./node-start.sh --rpc
+```
+```bash
+      tmux attach -t node1
+```
+- you'll now get into node's interactive console, from there input the below command and enter
+```bash
+      admin.nodeInfo.enr
+```
+- copy the output and keep it safe, don't stop the RPC node
+- update .env file in your local repo of the project by pasting bootnode value in the BOOTNODE variable of .env file
+- once done, do git push to update the repo in GitHub
+- now login/switch to the miner server
+- make sure that node is not running here, verify it by entering tmux ls ...there should not be any running session
+- remember now we are inside miner server, so follow below commands
+```bash
+      mkdir /root/wallet
+```
+```bash
+      cp -r /root/core-blockchain/chaindata/node1/keystore /root/wallet
+```
+```bash
+      cp /root/core-blockchain/chaindata/node1/pass.txt /root/wallet
+```
 
-Connect again to your server after reboot
 ```bash
-  sudo -i
-  git clone https://github.com/Latest-PoB/core-blockchain.git
-  cd core-blockchain
-  ./node-setup.sh --validator 1
+      cd
+      rm -rf /root/core-blockchain
 ```
-After you run node-setup, follow the on-screen instructions carefully and you'll get confirmation that the node was successfully installed on your system.
+```bash
+      git clone <repo>
+```
+```bash
+      cd /root/core-blockchain
+```
+```bash
+      ./node-setup.sh --validator 1
+```
+- follow the on-screen instructions. Enter any password when you are asked to create one, it will not matter because we are not going to use this wallet. We'll be using the old wallet that we had copied to the /root/wallet/ directory above
+- after "All task passed" message is shown, enter the below commands on MINER server
+```bash
+      rm -rf ./chaindata/node1/keystore
+```
+```bash
+      rm -rf ./chaindata/node1/pass.txt
+```
+```bash
+      cp -r /root/wallet/keystore ./chaindata/node1/keystore
+```
+```bash
+      cp -r /root/wallet/pass.txt ./chaindata/node1/pass.txt
+```
+- we have now removed the new wallet and replaced it with the old wallet inside /root/wallet/ dir, this is also the same wallet that we used in genesis.json file
+- now we can start the 1st validator/miner, to do that enter the below command
+```bash
+      ./node-start.sh --validator
+```
 
-**Note regarding your validator account -** While in the setup process, you'll be asked to create a new account that must be used for block mining and receiving gas rewards. You must import this account to your metamask or any preferred wallet. 
- 
-    
-## Usage/Examples
 
-Display help
-```bash
-./node-setup.sh --help
-```
-To create/install a validator node. Fresh first-time install
-```bash
-./node-setup.sh --validator 1
-```
-To run the validator node
-```bash
-./node-start.sh --validator
-```
-To get into a running node's interactive console/tmux session 
-```bash
-tmux attach -t node1
-```
-To exit/detach from an interactive console
-```text
-Press CTRL & b , release both keys, and press d
-```
+
